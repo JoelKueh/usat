@@ -78,11 +78,11 @@ int8_t cnf::check_clauses()
 		if (cnt == 0) {
 			// clause is empty, backtrack
 			// TODO: Remove
-			std::cerr << "Clause: " << i << std::endl;
-			for (i = c.start_idx; i < c.end_idx; i++) {
-				std::cerr << "Var: " << literals[i].var << ", Neg: " << literals[i].neg << std::endl;
-			}
-			std::cerr << std::endl;
+			// std::cerr << "Clause: " << i << std::endl;
+			// for (i = c.start_idx; i < c.end_idx; i++) {
+			// 	std::cerr << "Var: " << literals[i].var << ", Neg: " << literals[i].neg << std::endl;
+			// }
+			// std::cerr << std::endl;
 			return SIMPLIFY_CONFLICT;
 		} else if (cnt == -1) {
 			// clause is satisfied, do nothing
@@ -270,7 +270,7 @@ bool cnf::backtrack()
 	// conflict on guess, inversion is forced
 	s.assignment_forced = true;
 	s.assigned_true = !s.assigned_true;
-	state[v] = s;
+	decide(v, s);
 
 	return true;
 }
