@@ -1,0 +1,98 @@
+#pragma once
+
+#include <string>
+#include <cstdint>
+#include <vector>
+
+#define VAR_POS(x) ((lit_t){.var = x << 1, .neg = 0})
+#define VAR_NEG(x) ((lit_t){.var = x << 1, .neg = 1})
+
+#define LIT_NEG_BIT 0b001
+
+// A CNF SAT problem consists of a set of clauses.
+class cnf
+{
+	public:
+		typedef uint32_t var_t;
+		struct clause {
+			size_t start_idx;
+			size_t end_idx;
+		};
+		union lit_t {
+			struct {
+				var_t var : 31;
+				bool neg : 1;
+			};
+			uint32_t raw;
+		};
+		union var_state {
+			struct {
+				bool assigned : 1;          // Is this variable assigned?
+				bool assigned_true : 1;     // Has this variable assigned true?
+				bool assignment_forced : 1; // Was this assignment forced?
+				bool appears_pos : 1;       // Appears positive in some clause?
+				bool appears_neg : 1;       // Appears negative in some clause?
+			};
+			uint8_t raw;
+		};
+
+		cnf();
+		int init(std::string cnf_path);
+
+		// @brief Solves the cnf sat problem.
+		// @return A pointer to the solution if satisfiable, null otherwise
+		const std::vector<var_state> *const solve();
+		~cnf();
+
+	private:
+		std::vector<clause> clauses;  // The list of clauses that we maintain
+		std::vector<lit_t> literals;    // Pool of literals for the clauses
+		std::vector<var_state> state; // State vector with variable assignments
+		std::vector<var_t> decisions;    // Decision stack with assignment history
+		uint32_t var_cnt;
+		uint32_t clause_cnt;
+		uint32_t max_var;
+
+		typedef uint8_t clause_state;
+		enum simplification_result {
+			SIMPLIFY_CONFLICT = -1,
+			SIMPLIFY_NONE = 0,
+			SIMPLIFY_SOME = 1,
+			SIMPLIFY_SAT = 2,
+		};
+
+		const var_state VAR_INIT = var_state {.raw = 0};
+		const var_state VAR_FORCED_TRUE = var_state {
+			.assigned = 1,
+			.assigned_true = 1,
+			.assignment_forced = 1,
+		};
+		const var_state VAR_FORCED_FALSE = var_state {
+			.assigned = 1,
+			.assigned_true = 0,
+			.assignment_forced = 1,
+		};
+
+		// @brief Counts the number of free variables in the current state.
+		// Returns -1 if the clause is satisfied in the current state.
+		// @param c The clause to check.
+		// @return The number of free variables or -1 if satisfied.
+		int32_t clause_count_free(clause &c);
+
+		// @brief Checks all clauses and simplifies where possible.
+		// @return -1 if unsat, 0 if simplification impossible, 1 if simplification possible
+		int8_t check_clauses();
+
+		// @biref Make a heuristics-guided assignment to a variable.
+		void guess();
+
+		// @brief Performs unit propagation on viable clause 'c'.
+		void unit_propagate(clause &c);
+		
+		// @brief Makes a decision 's' about a variable 'v'.
+		void decide(var_t v, var_state s);
+
+		// @brief Undoes decisions up to and including the last guess.
+		// @return false if we cannot backtrack (unsat), otherwise true
+		bool backtrack();
+};
