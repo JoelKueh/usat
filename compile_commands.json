@@ -1,0 +1,47 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-I./inc",
+      "-O3",
+      "-std=c++11",
+      "-o",
+      "obj/usat.o",
+      "src/usat.cpp"
+    ],
+    "directory": "/home/joel/src/umntc/s26/usat",
+    "file": "/home/joel/src/umntc/s26/usat/src/usat.cpp",
+    "output": "/home/joel/src/umntc/s26/usat/obj/usat.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-I./inc",
+      "-O3",
+      "-std=c++11",
+      "-o",
+      "obj/cnf.o",
+      "src/cnf.cpp"
+    ],
+    "directory": "/home/joel/src/umntc/s26/usat",
+    "file": "/home/joel/src/umntc/s26/usat/src/cnf.cpp",
+    "output": "/home/joel/src/umntc/s26/usat/obj/cnf.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-I./inc",
+      "-O3",
+      "-std=c++11",
+      "-o",
+      "obj/test.o",
+      "src/test.cpp"
+    ],
+    "directory": "/home/joel/src/umntc/s26/usat",
+    "file": "/home/joel/src/umntc/s26/usat/src/test.cpp",
+    "output": "/home/joel/src/umntc/s26/usat/obj/test.o"
+  }
+]

@@ -25,12 +25,17 @@ int cnf::init(std::string cnf_path)
 	while (std::getline(ifs, line)) {
 		ss = std::stringstream(line);
 		
-		// Handle comments and the header line
 		if (line[0] == 'c') {
+			// skip all comments
 			continue;
 		} else if (line[0] == 'p') {
+			// reserve space when encoutnering the header line
 			ss >> trash >> trash >> var_cnt >> clause_cnt;
 			clauses.reserve(clause_cnt);
+			continue;
+		} else if (line[0] == '%') {
+			// % is an optional end of file marker
+			break;
 		}
 
 		// Handle all other clause lines
@@ -39,7 +44,7 @@ int cnf::init(std::string cnf_path)
 			if (literal == 0)
 				break;
 			variable = literal < 0 ? -literal : literal;
-			literals.push_back(literal < 0 ? VAR_NEG(variable) : VAR_NEG(variable));
+			literals.push_back(literal < 0 ? VAR_NEG(variable) : VAR_POS(variable));
 			max_var = max_var < variable ? variable : max_var;
 		}
 		clauses.back().end_idx = literals.size();
@@ -56,7 +61,10 @@ int8_t cnf::check_clauses()
 	int32_t cnt;
 	var_t v;
 	var_state s;
+	uint32_t i;
+	clause c;
 
+	// FIX: detection for pure literal elimination is totally broken
 	// reset the appears_pos and appears_neg flags in each clause
 	for (var_state &s : state) {
 		s.appears_neg = false;
@@ -64,10 +72,17 @@ int8_t cnf::check_clauses()
 	}
 
 	// check all clauses
-	for (clause &c : clauses) {
+	for (i = 0; i < clauses.size(); i++) {
+		c = clauses[i];
 		cnt = clause_count_free(c);
 		if (cnt == 0) {
 			// clause is empty, backtrack
+			// TODO: Remove
+			std::cerr << "Clause: " << i << std::endl;
+			for (i = c.start_idx; i < c.end_idx; i++) {
+				std::cerr << "Var: " << literals[i].var << ", Neg: " << literals[i].neg << std::endl;
+			}
+			std::cerr << std::endl;
 			return SIMPLIFY_CONFLICT;
 		} else if (cnt == -1) {
 			// clause is satisfied, do nothing
@@ -82,16 +97,16 @@ int8_t cnf::check_clauses()
 	}
 
 	// perform pure literal elimination for all variables
-	for (v = 0; v < state.size(); v++) {
-		s = state[v];
-		if (!s.assigned && s.appears_pos && !s.appears_neg) {
-			decide(v, VAR_FORCED_TRUE);
-			simpl_done = true;
-		} else if (!s.assigned && !s.appears_pos && s.appears_neg) {
-			decide(v, VAR_FORCED_FALSE);
-			simpl_done = true;
-		}
-	}
+	// for (v = 0; v < state.size(); v++) {
+	// 	s = state[v];
+	// 	if (!s.assigned && s.appears_pos && !s.appears_neg) {
+	// 		decide(v, VAR_FORCED_TRUE);
+	// 		simpl_done = true;
+	// 	} else if (!s.assigned && !s.appears_pos && s.appears_neg) {
+	// 		decide(v, VAR_FORCED_FALSE);
+	// 		simpl_done = true;
+	// 	}
+	// }
 
 	if (sat)
 		return SIMPLIFY_SAT;
@@ -106,15 +121,14 @@ const std::vector<cnf::var_state> *const cnf::solve()
 
 	// reset the state vector
 	state.clear();
-	state.reserve(max_var);
+	state.reserve(max_var+1);
+	state.emplace_back(VAR_FORCED_FALSE); // 0 is a hardwired false variable
 	while (state.size() < state.capacity())
 		state.emplace_back(VAR_INIT);
 
 	// reset the decision vector
 	decisions.clear();
-	decisions.reserve(max_var);
-	while (decisions.size() < decisions.capacity())
-		decisions.emplace_back();
+	decisions.reserve(max_var+1);
 
 	// perform the generic dpll algorithm
 	while (true) {
@@ -154,11 +168,11 @@ int32_t cnf::clause_count_free(clause &c)
 		s = &state[l.var];
 
 		// if variable true and literal positive, then clause true
-		if (s->assigned_true && !l.neg)
+		if (s->assigned && s->assigned_true && !l.neg)
 			return -1;
 
 		// if variable false and literal negative, then clause true
-		if (!s->assigned_true && l.neg)
+		if (s->assigned && !s->assigned_true && l.neg)
 			return -1;
 	}
 
@@ -246,6 +260,7 @@ bool cnf::backtrack()
 		v = decisions.back();
 		s = state[v];
 		decisions.pop_back();
+		state[v] = VAR_INIT;
 	} while (!decisions.empty() && s.assignment_forced);
 
 	// if all of our decisions are forced, we cannot backtrack
@@ -255,6 +270,7 @@ bool cnf::backtrack()
 	// conflict on guess, inversion is forced
 	s.assignment_forced = true;
 	s.assigned_true = !s.assigned_true;
+	state[v] = s;
 
 	return true;
 }

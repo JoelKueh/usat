@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <vector>
 
-#define VAR_POS(x) ((lit_t){.var = x << 1, .neg = 0})
-#define VAR_NEG(x) ((lit_t){.var = x << 1, .neg = 1})
+#define VAR_POS(x) ((lit_t){.neg = false, .var = x})
+#define VAR_NEG(x) ((lit_t){.neg = true, .var = x})
 
 #define LIT_NEG_BIT 0b001
 
@@ -20,8 +20,8 @@ class cnf
 		};
 		union lit_t {
 			struct {
-				var_t var : 31;
 				bool neg : 1;
+				var_t var : 31;
 			};
 			uint32_t raw;
 		};
@@ -38,6 +38,10 @@ class cnf
 
 		cnf();
 		int init(std::string cnf_path);
+
+		inline uint32_t get_max_var() { return max_var; };
+		inline uint32_t get_clause_cnt() { return clauses.size(); };
+		inline uint32_t get_lit_cnt() { return literals.size(); };
 
 		// @brief Solves the cnf sat problem.
 		// @return A pointer to the solution if satisfiable, null otherwise
