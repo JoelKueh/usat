@@ -1,8 +1,30 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
+#include <filesystem>
 
 #include "cnf.h"
+
+using recursive_directory_iterator = std::filesystem::recursive_directory_iterator;
+
+void test_single(std::string path, bool sat)
+{
+	const std::vector<cnf::var_state> *sol;
+	cnf::var_state s;
+	cnf::var_t v;
+	cnf cnfsat;
+	bool result;
+
+	REQUIRE(cnfsat.init(path) == 0);
+	result = cnfsat.solve() != nullptr;
+	CHECK(result == sat);
+}
+
+void test_dir(std::string dirpath, bool sat)
+{
+	for (const auto& dirent : recursive_directory_iterator(dirpath))
+    	test_single(dirent.path(), sat);
+}
 
 TEST_CASE("cnf uf20-91-1") {
 	const std::vector<cnf::var_state> *sol;
@@ -35,4 +57,12 @@ TEST_CASE("cnf uuf75-325") {
 	}
 
 	CHECK_FALSE((void*)sol);
+}
+
+TEST_CASE("cnf uf20-91") {
+	test_dir("./test/uf20-91/", true);
+}
+
+TEST_CASE("cnf uuf75-325") {
+	// test_dir("./test/uuf75-325/", false);
 }

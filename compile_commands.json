@@ -5,22 +5,7 @@
       "-c",
       "-I./inc",
       "-O3",
-      "-std=c++11",
-      "-o",
-      "obj/usat.o",
-      "src/usat.cpp"
-    ],
-    "directory": "/home/joel/src/umntc/s26/usat",
-    "file": "/home/joel/src/umntc/s26/usat/src/usat.cpp",
-    "output": "/home/joel/src/umntc/s26/usat/obj/usat.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/g++",
-      "-c",
-      "-I./inc",
-      "-O3",
-      "-std=c++11",
+      "-std=c++17",
       "-o",
       "obj/cnf.o",
       "src/cnf.cpp"
@@ -35,13 +20,13 @@
       "-c",
       "-I./inc",
       "-O3",
-      "-std=c++11",
+      "-std=c++17",
       "-o",
-      "obj/test.o",
-      "src/test.cpp"
+      "obj/usat.o",
+      "src/usat.cpp"
     ],
     "directory": "/home/joel/src/umntc/s26/usat",
-    "file": "/home/joel/src/umntc/s26/usat/src/test.cpp",
-    "output": "/home/joel/src/umntc/s26/usat/obj/test.o"
+    "file": "/home/joel/src/umntc/s26/usat/src/usat.cpp",
+    "output": "/home/joel/src/umntc/s26/usat/obj/usat.o"
   }
 ]

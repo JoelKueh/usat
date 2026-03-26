@@ -4,7 +4,16 @@
 #include <fstream>
 #include <sstream>
 
-cnf::cnf() = default;
+cnf::cnf()
+{
+	clauses.clear();
+	literals.clear();
+	state.clear();
+	decisions.clear();
+	var_cnt = 0;
+	clause_cnt = 0;
+	max_var = 0;
+}
 
 int cnf::init(std::string cnf_path)
 {
@@ -15,7 +24,7 @@ int cnf::init(std::string cnf_path)
 	int32_t literal;
 	uint32_t variable;
 
-	// Open the cnf file
+	// open the cnf file
 	ifs.open(cnf_path);
 	if (!ifs.is_open()) {
 		std::cerr << "Failed to open output stream" << std::endl;
@@ -128,7 +137,7 @@ const std::vector<cnf::var_state> *const cnf::solve()
 
 	// reset the decision vector
 	decisions.clear();
-	decisions.reserve(max_var+1);
+	decisions.reserve(max_var);
 
 	// perform the generic dpll algorithm
 	while (true) {
@@ -204,11 +213,11 @@ void cnf::unit_propagate(clause &c)
 	int i;
 
 	// look for the only free variable in the provided clause
-	for (i = c.start_idx; i < c.end_idx; i++) {
-		l = literals[i];
-		if (state[l.var].assigned == false)
-			v = l.var;
-	}
+	i = c.start_idx;
+	do {
+		l = literals[i++];
+		v = l.var;
+	} while (state[l.var].assigned);
 
 	// assign the variable
 	s = state[v];

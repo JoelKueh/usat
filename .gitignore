@@ -1,4 +1,5 @@
 obj
 bin
 out
+.cache/
 vgcore.*

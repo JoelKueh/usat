@@ -8,7 +8,7 @@ SRC_DIR=src
 
 OPT_LEVEL=-O3
 INC_DIRS=-I./inc
-CFLAGS=$(INC_DIRS) $(OPT_LEVEL) -std=c++11
+CFLAGS=$(INC_DIRS) $(OPT_LEVEL) -std=c++17
 
 .PHONY: default clean debug release test test-debug
 default: $(BIN_DIR)/usat
