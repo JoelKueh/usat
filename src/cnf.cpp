@@ -126,6 +126,11 @@ int8_t cnf::check_clauses()
 
 const std::vector<cnf::var_state> *const cnf::solve()
 {
+	return solve(nullptr);
+}
+
+const std::vector<cnf::var_state> *const cnf::solve(bool *cancel)
+{
 	int8_t simplification_result;
 
 	// reset the state vector
@@ -141,6 +146,10 @@ const std::vector<cnf::var_state> *const cnf::solve()
 
 	// perform the generic dpll algorithm
 	while (true) {
+		// check the cancellation token
+		if (cancel != nullptr && *cancel)
+			return NULL;
+			
 		// attempt to simplify
 		simplification_result = check_clauses();
 		switch (simplification_result) {

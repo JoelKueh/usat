@@ -46,6 +46,7 @@ class cnf
 		// @brief Solves the cnf sat problem.
 		// @return A pointer to the solution if satisfiable, null otherwise
 		const std::vector<var_state> *const solve();
+		const std::vector<var_state> *const solve(bool *cancel);
 		~cnf();
 
 	private:
