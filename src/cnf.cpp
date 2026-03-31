@@ -33,7 +33,7 @@ int cnf::init(std::string cnf_path)
 
 	while (std::getline(ifs, line)) {
 		ss = std::stringstream(line);
-		
+
 		if (line[0] == 'c') {
 			// skip all comments
 			continue;
