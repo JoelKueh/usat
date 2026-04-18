@@ -445,43 +445,43 @@ bool cnf::backjump()
 	var_t v;
 	var_state s;
 	bool in_clause;
+	lit_t cfl_lit;
+	int max_decision_level = 0;
+	int level;
 	int i;
 
 	// if the decision stack is empty, we cannot backtrack
 	if (decisions.empty())
 		return false;
 
-	// undo decisions until the last guess at the right decision level
-	do {
+	// compute second highest decision level in conflict clause
+	for (i = 0; i < cfl_literals.size(); i++) {
+		level = decision_levels[cfl_literals[i].var];
+		if (level > max_decision_level) {
+			decision_level = max_decision_level;
+			max_decision_level = decision_levels[cfl_literals[i].var];
+			cfl_lit = cfl_literals[i];
+		} else if (level > decision_level && level < max_decision_level) {
+			decision_level = level;
+		}
+	}
+
+	// undo decisions up to the new decision level
+	v = decisions.back();
+	while (!decisions.empty() && decision_levels[decisions.back()] > decision_level) {
 		v = decisions.back();
-		s = state[v];
 		decisions.pop_back();
 		state[v] = VAR_INIT;
+		decision_levels[v] = 0;
+		decision_idx[v] = 0;
+	}
 
-		// if assignment to the literal was not forced, then continue
-		if (s.assignment_forced)
-			continue;
-		decision_level -= 1;
-
-		// if the literal is not in the conflict clause, then continue
-		in_clause = false;
-		for (i = 0; i < cfl_literals.size(); i++)
-			if (cfl_literals[i].var == v)
-				in_clause = true;
-		if (!in_clause)
-			continue;
-
-		break;
-	} while (!decisions.empty());
-
-	// if all of our decisions are forced, we cannot backtrack
-	if (s.assignment_forced)
-		return false;
-
-	// conflict on guess, inversion is forced
+	// assert resolution at the lowest possible decision level
+	s.raw = 0;
+	s.assigned = true;
+	s.assigned_true = !cfl_lit.neg;
 	s.assignment_forced = true;
-	s.assigned_true = !s.assigned_true;
-	decide(v, s);
+	decide(cfl_lit.var, s);
 
 	// we backtracked successfully, there is no longer conflict
 	cfl_literals.clear();
