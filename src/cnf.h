@@ -30,8 +30,6 @@ class cnf
 				bool assigned : 1;          // Is this variable assigned?
 				bool assigned_true : 1;     // Has this variable assigned true?
 				bool assignment_forced : 1; // Was this assignment forced?
-				bool appears_pos : 1;       // Appears positive in some clause?
-				bool appears_neg : 1;       // Appears negative in some clause?
 			};
 			uint8_t raw;
 		};
@@ -53,10 +51,15 @@ class cnf
 		std::vector<clause> clauses;  // The list of clauses that we maintain
 		std::vector<lit_t> literals;    // Pool of literals for the clauses
 		std::vector<var_state> state; // State vector with variable assignments
+		std::vector<uint32_t> decision_levels; // vector of decision levels for variables
+		std::vector<uint32_t> decision_idx; // vector of decision indicies for variables
 		std::vector<var_t> decisions;    // Decision stack with assignment history
+		std::vector<lit_t> cfl_literals;
 		uint32_t var_cnt;
-		uint32_t clause_cnt;
 		uint32_t max_var;
+		uint32_t clause_cnt;
+		uint32_t decision_level;
+
 
 		typedef uint8_t clause_state;
 		enum simplification_result {
@@ -97,7 +100,22 @@ class cnf
 		// @brief Makes a decision 's' about a variable 'v'.
 		void decide(var_t v, var_state s);
 
+		// @brief Handles inference when a conflict is detected.
+		// @return true if the conflict could be resolved else false.
+		bool conflict();
+
+		// @brief Detects if the conflict clause is at the 1 unique implication point.
+		// @return true if the conflict clause has only one decision at the current level.
+		bool at_1uip();
+
+		// @breif Resolves the current conflict clause with an antecedent.
+		void explain();
+
 		// @brief Undoes decisions up to and including the last guess.
 		// @return false if we cannot backtrack (unsat), otherwise true
 		bool backtrack();
+
+		// @brief Undoes decisions up to and including the last guess.
+		// @return false if we cannot backjump (unsat), otherwise true
+		bool backjump();
 };

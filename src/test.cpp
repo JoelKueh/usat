@@ -13,7 +13,7 @@
 using recursive_directory_iterator = std::filesystem::recursive_directory_iterator;
 using namespace std::chrono;
 
-const duration<double, std::milli> TIMEOUT = std::chrono::seconds(15);
+const duration<double, std::milli> TIMEOUT = std::chrono::seconds(1000000);
 
 void pbar(std::string title, int cur, int total, duration<double, std::milli>last_time)
 {

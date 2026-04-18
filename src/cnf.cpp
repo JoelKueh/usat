@@ -70,28 +70,16 @@ int8_t cnf::check_clauses()
 	int32_t cnt;
 	var_t v;
 	var_state s;
-	uint32_t i;
+	uint32_t i, j;
 	clause c;
-
-	// FIX: detection for pure literal elimination is totally broken
-	// reset the appears_pos and appears_neg flags in each clause
-	for (var_state &s : state) {
-		s.appears_neg = false;
-		s.appears_pos = false;
-	}
 
 	// check all clauses
 	for (i = 0; i < clauses.size(); i++) {
 		c = clauses[i];
 		cnt = clause_count_free(c);
 		if (cnt == 0) {
-			// clause is empty, backtrack
-			// TODO: Remove
-			// std::cerr << "Clause: " << i << std::endl;
-			// for (i = c.start_idx; i < c.end_idx; i++) {
-			// 	std::cerr << "Var: " << literals[i].var << ", Neg: " << literals[i].neg << std::endl;
-			// }
-			// std::cerr << std::endl;
+			for (j = c.start_idx; j < c.end_idx; j++)
+				cfl_literals.push_back(literals[j]);
 			return SIMPLIFY_CONFLICT;
 		} else if (cnt == -1) {
 			// clause is satisfied, do nothing
@@ -104,18 +92,6 @@ int8_t cnf::check_clauses()
 			sat = false;
 		}
 	}
-
-	// perform pure literal elimination for all variables
-	// for (v = 0; v < state.size(); v++) {
-	// 	s = state[v];
-	// 	if (!s.assigned && s.appears_pos && !s.appears_neg) {
-	// 		decide(v, VAR_FORCED_TRUE);
-	// 		simpl_done = true;
-	// 	} else if (!s.assigned && !s.appears_pos && s.appears_neg) {
-	// 		decide(v, VAR_FORCED_FALSE);
-	// 		simpl_done = true;
-	// 	}
-	// }
 
 	if (sat)
 		return SIMPLIFY_SAT;
@@ -140,6 +116,20 @@ const std::vector<cnf::var_state> *const cnf::solve(bool *cancel)
 	while (state.size() < state.capacity())
 		state.emplace_back(VAR_INIT);
 
+	// reset the decision level vector
+	decision_levels.clear();
+	decision_levels.reserve(max_var+1);
+	decision_levels.emplace_back(0); // 0 is a hardwired false variable
+	while (decision_levels.size() < decision_levels.capacity())
+		decision_levels.emplace_back(0);
+
+	// reset the decision idx vector
+	decision_idx.clear();
+	decision_idx.reserve(max_var+1);
+	decision_idx.emplace_back(0); // 0 is a hardwired false variable
+	while (decision_idx.size() < decision_idx.capacity())
+		decision_idx.emplace_back(0);
+
 	// reset the decision vector
 	decisions.clear();
 	decisions.reserve(max_var);
@@ -155,7 +145,7 @@ const std::vector<cnf::var_state> *const cnf::solve(bool *cancel)
 		switch (simplification_result) {
 		case SIMPLIFY_CONFLICT:
 			// if there is a conflict and we cannot backtrack, the problem is unsat
-			if (!backtrack())
+			if (!conflict())
 				return NULL;
 			break;
 		case SIMPLIFY_NONE:
@@ -200,10 +190,6 @@ int32_t cnf::clause_count_free(clause &c)
 		l = literals[i];
 		s = &state[l.var];
 
-		// book keeping for pure literal elimination
-		s->appears_pos = s->appears_pos || !l.neg;
-		s->appears_neg = s->appears_neg || l.neg;
-
 		// variable is assigned and literal is false, reduce free count
 		if (s->assigned)
 			cnt--;
@@ -231,8 +217,8 @@ void cnf::unit_propagate(clause &c)
 	// assign the variable
 	s = state[v];
 	s.assigned = true;
-	s.assignment_forced = true; // deduction: assignment is not a guess (forced)
-	s.assigned_true = !l.neg;   // if the literal is negated, assign false, else assign true
+	s.assignment_forced = true;
+	s.assigned_true = !l.neg;
 	decide(v, s);
 }
 
@@ -255,13 +241,143 @@ void cnf::guess()
 	s.assigned = true;
 	s.assigned_true = false;
 	s.assignment_forced = false;
+	decision_level += 1;
 	decide(v, s);
 }
 
 void cnf::decide(var_t v, var_state s)
 {
 	state[v] = s;
+	decision_levels[v] = decision_level;
+	decision_idx[v] = decisions.size();
 	decisions.push_back(v);
+}
+
+bool cnf::conflict()
+{
+	clause *ant;
+	clause res;
+	var_state s;
+	var_t v;
+	int i, j;
+
+	// if assignment for l was not forced, just backtrack
+	if (!state[decisions.back()].assignment_forced) {
+		return backtrack();
+	}
+
+	// repeatedly resolve conflict with antecedent to find 1UIP
+	while (!at_1uip()) {
+		explain();
+	}
+
+	// simplify the conflict clause due to implication rules
+	for (i = 0; i < cfl_literals.size(); i++) {
+		for (j = i+1; j < cfl_literals.size(); j++) {
+			if (cfl_literals[i].var == cfl_literals[j].var
+			    	&& cfl_literals[i].neg != cfl_literals[j].neg) {
+				cfl_literals[i].var = 0;
+				cfl_literals[j].var = 0;
+			}
+		}
+	}
+
+	for (i = 0; i < cfl_literals.size(); i++) {
+		if (cfl_literals[i].var == 0)
+			cfl_literals.erase(cfl_literals.begin() + i);
+	}
+	
+	// learn the conflict clause
+	res.start_idx = literals.size();
+	for (i = 0; i < cfl_literals.size(); i++)
+		literals.push_back(cfl_literals[i]);
+	res.end_idx = literals.size();
+
+	// backjump after saving the clause
+	return backjump();
+}
+
+bool cnf::at_1uip()
+{
+	int count = 0;
+	int i;
+
+	for (i = 0; i < cfl_literals.size(); i++) {
+		if (decision_level == decision_levels[cfl_literals[i].var])
+			count += 1;
+	}
+
+	return count >= 1;
+}
+
+void cnf::explain()
+{
+	lit_t cfl_lit;
+	var_t v;
+	var_state s;
+	clause *ant;
+	uint32_t max_idx;
+	int i, j, cfl_lit_itr;
+	bool lit_in_clause;
+
+	// detect the cfl_lit in the clause
+	cfl_lit = VAR_POS(0);
+	max_idx = 0;
+	for (i = 0; i < cfl_literals.size(); i++) {
+		if (decision_idx[cfl_literals[i].var] > max_idx) {
+			max_idx = decision_idx[cfl_literals[i].var];
+			cfl_lit = cfl_literals[i];
+		}
+	}
+
+	// if cfl_lit is both pos and neg then resolve
+	for (i = cfl_lit_itr+1; i < cfl_literals.size(); i++) {
+		if (cfl_lit.var == cfl_literals[i].var && cfl_lit.neg != cfl_literals[i].neg) {
+			cfl_literals.erase(cfl_literals.begin() + i);
+			cfl_literals.erase(cfl_literals.begin() + cfl_lit_itr);
+			return;
+		}
+	}
+	
+	// detect a suitable anticedent clause
+	for (clause &c : clauses) {
+		ant = NULL;
+		for (i = c.start_idx; i < c.end_idx; i++) {
+			v = literals[i].var;
+			s = state[v];
+			if (v == cfl_lit.var && literals[i].neg != cfl_lit.neg) {
+				ant = &c;
+			} else if (!s.assigned || s.assigned_true != literals[i].neg) {
+				// TODO: Remove
+				// std::cerr << "test2\n";
+				ant = NULL;
+				break;
+			}  else if (decision_idx[v] > max_idx) {
+				// TODO: Remove
+				// std::cerr << "test1\n";
+				ant = NULL;
+				break;
+			}
+		}
+
+		if (ant != NULL)
+			break;
+	}
+
+	// resolve the conflict clause with the anticedent
+	for (i = 0; i < cfl_literals.size(); i++) {
+		if (cfl_literals[i].var == cfl_lit.var)
+			cfl_literals.erase(cfl_literals.begin() + i);
+	}
+
+	for (i = ant->start_idx; i < ant->end_idx; i++) {
+		lit_in_clause = false;
+		for (j = 0; j < cfl_literals.size(); j++)
+			if (literals[i].var != cfl_literals[j].var && literals[i].neg == cfl_literals[j].neg)
+				lit_in_clause = true;
+		if (!lit_in_clause && literals[i].var != cfl_lit.var)
+			cfl_literals.push_back(literals[i]);
+	}
 }
 
 bool cnf::backtrack()
@@ -289,6 +405,58 @@ bool cnf::backtrack()
 	s.assignment_forced = true;
 	s.assigned_true = !s.assigned_true;
 	decide(v, s);
+
+	return true;
+}
+
+bool cnf::backjump()
+{
+	var_t v;
+	var_state s;
+	int new_decision_level;
+	int i;
+
+	// if the decision stack is empty, we cannot backtrack
+	if (decisions.empty())
+		return false;
+
+	// get the maximum decision level of the conflict clause
+	new_decision_level = 0;
+	for (i = 0; i < cfl_literals.size(); i++) {
+		new_decision_level = decision_levels[cfl_literals[i].var] > new_decision_level ?
+			decision_levels[cfl_literals[i].var] : new_decision_level;
+	}
+
+	// undo decisions until the last guess at the right decision level
+	do {
+		v = decisions.back();
+		s = state[v];
+		decisions.pop_back();
+		state[v] = VAR_INIT;
+
+		// if the literal is not in the conflict clause, then continue
+		if (decision_levels[v] > new_decision_level)
+			continue;
+
+		// if assignment to the literal was not forced, then continue
+		if (s.assignment_forced)
+			continue;
+
+		// if the above two conditions are false, the literal is valie
+		break;
+	} while (!decisions.empty());
+
+	// if all of our decisions are forced, we cannot backtrack
+	if (s.assignment_forced)
+		return false;
+
+	// conflict on guess, inversion is forced
+	s.assignment_forced = true;
+	s.assigned_true = !s.assigned_true;
+	decide(v, s);
+
+	// we backtracked successfully, there is no longer conflict
+	cfl_literals.clear();
 
 	return true;
 }
