@@ -59,7 +59,7 @@ class cnf
 		uint32_t max_var;
 		uint32_t clause_cnt;
 		uint32_t decision_level;
-
+		uint32_t conflicts;
 
 		typedef uint8_t clause_state;
 		enum simplification_result {

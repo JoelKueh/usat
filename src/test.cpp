@@ -100,6 +100,6 @@ TEST_CASE("cnf uf250-1065") {
 	test_dir("./test/uf250-1065/", true);
 }
 
-TEST_CASE("cnf uuf75-325") {
+TEST_CASE("cnf uuf250-1065") {
 	test_dir("./test/uuf250-1065/", false);
 }
